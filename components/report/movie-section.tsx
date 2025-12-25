@@ -1,116 +1,668 @@
-'use client'
+"use client";
 
-import { motion } from 'framer-motion'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import Image from 'next/image'
-import { Film } from 'lucide-react'
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
+import Image from "next/image";
+import { gsap } from "gsap";
+import { X } from "lucide-react";
 
-interface MovieSectionProps {
-  movies: any[]
+interface Movie {
+  id: string;
+  title: string;
+  date?: string;
+  release_date?: string;
+  poster_url?: string;
+  rating?: number;
+  summary?: string;
 }
 
-export function MovieSection({ movies }: MovieSectionProps) {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
+interface MovieSectionProps {
+  movies: Movie[];
+  onSubPageChange?: (subPage: 'summary' | 'gallery') => void;
+  onGalleryScrollChange?: (isAtBottom: boolean) => void;
+}
+
+export interface MovieSectionRef {
+  getCurrentSubPage: () => 'summary' | 'gallery';
+  switchToGallery: () => void;
+  isGalleryAtBottom: () => boolean;
+}
+
+interface MovieCardProps {
+  movie: Movie;
+  onClose: () => void;
+}
+
+// 3D 卡片弹出组件
+function MovieCard({ movie, onClose }: MovieCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // 3D 旋转进入动画
+    gsap.fromTo(
+      cardRef.current,
+      {
+        rotationY: -90,
+        opacity: 0,
+        scale: 0.8,
       },
-    },
-  }
+      {
+        rotationY: 0,
+        opacity: 1,
+        scale: 1,
+        duration: 0.8,
+        ease: "back.out(1.7)",
+      }
+    );
 
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-    },
-  }
+    gsap.fromTo(
+      overlayRef.current,
+      { opacity: 0 },
+      { opacity: 1, duration: 0.3 }
+    );
+  }, []);
 
-  const averageRating =
-    movies.reduce((sum, m) => sum + (m.rating || 0), 0) / movies.length
+  const handleClose = () => {
+    gsap.to(cardRef.current, {
+      rotationY: 90,
+      opacity: 0,
+      scale: 0.8,
+      duration: 0.5,
+      ease: "back.in(1.7)",
+      onComplete: onClose,
+    });
+    gsap.to(overlayRef.current, {
+      opacity: 0,
+      duration: 0.3,
+    });
+  };
 
   return (
-    <motion.section
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: '-100px' }}
-      variants={containerVariants}
-      className="min-h-screen flex items-center justify-center px-4 py-20"
-    >
-      <div className="container mx-auto max-w-6xl">
-        <motion.div variants={itemVariants} className="text-center mb-12">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Film className="h-8 w-8 text-pink-500" />
-            <h2 className="text-4xl md:text-5xl font-bold">观影记录</h2>
-          </div>
-          <p className="text-muted-foreground text-lg">
-            共观看了 <strong className="text-foreground">{movies.length}</strong> 部电影
-            {averageRating > 0 && (
-              <>
-                {' '}
-                · 平均评分{' '}
-                <strong className="text-foreground">
-                  {averageRating.toFixed(1)}/5
-                </strong>
-              </>
-            )}
-          </p>
-        </motion.div>
+    <>
+      <div
+        ref={overlayRef}
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+        onClick={handleClose}
+      />
+      <div
+        ref={cardRef}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+        style={{ perspective: "1000px" }}
+      >
+        <div
+          className="bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 rounded-2xl shadow-2xl max-w-md w-full pointer-events-auto relative overflow-hidden"
+          style={{ transformStyle: "preserve-3d" }}
+        >
+          <button
+            onClick={handleClose}
+            className="absolute top-4 right-4 z-10 text-white hover:text-gray-300 transition-colors"
+          >
+            <X className="h-6 w-6" />
+          </button>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {movies.map((movie, index) => (
-            <motion.div key={movie.id} variants={itemVariants}>
-              <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                {movie.poster_url && (
-                  <div className="relative w-full aspect-[2/3]">
-                    <Image
-                      src={movie.poster_url}
-                      alt={movie.title}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                )}
-                <CardHeader>
-                  <CardTitle className="text-lg line-clamp-2">
-                    {movie.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    {movie.date && (
-                      <div>日期: {new Date(movie.date).toLocaleDateString('zh-CN')}</div>
-                    )}
-                    {movie.rating && (
-                      <div className="flex items-center gap-1">
-                        <span>评分:</span>
-                        <div className="flex">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <span
-                              key={i}
-                              className={i < movie.rating ? 'text-yellow-500' : 'text-gray-300'}
-                            >
-                              ★
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {movie.summary && (
-                    <p className="mt-4 text-sm text-muted-foreground line-clamp-3">
-                      {movie.summary}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
+          {movie.poster_url && (
+            <div className="relative w-full aspect-[2/3]">
+              <img
+                src={movie.poster_url}
+                alt={movie.title}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+            </div>
+          )}
+
+          <div className="p-6 text-white">
+            <h3 className="text-3xl font-bold mb-4 font-playfair">
+              {movie.title}
+            </h3>
+            {movie.release_date && (
+              <div className="mb-2">
+                <span className="text-gray-400">上映时间：</span>
+                <span className="font-inter">
+                  {new Date(movie.release_date).toLocaleDateString("zh-CN", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </span>
+              </div>
+            )}
+            {movie.date && (
+              <div className="mb-4">
+                <span className="text-gray-400">观看日期：</span>
+                <span className="font-inter">
+                  {new Date(movie.date).toLocaleDateString("zh-CN", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </span>
+              </div>
+            )}
+            {movie.rating !== undefined && movie.rating > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400">评分：</span>
+                <div className="flex">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={
+                        i < movie.rating! ? "text-yellow-400" : "text-gray-600"
+                      }
+                    >
+                      ★
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export const MovieSection = forwardRef<MovieSectionRef, MovieSectionProps>(
+  ({ movies, onSubPageChange, onGalleryScrollChange }, ref) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const summaryRef = useRef<HTMLDivElement>(null);
+  const galleryRef = useRef<HTMLDivElement>(null);
+  const galleryContainerRef = useRef<HTMLDivElement>(null);
+  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [showGallery, setShowGallery] = useState(false);
+  const isScrolling = useRef(false);
+
+  // 计算统计数据
+  const totalMovies = movies.length;
+  const averageRating =
+    movies.reduce((sum, m) => sum + (m.rating || 0), 0) / movies.length || 0;
+  // 假设每部电影平均时长 120 分钟
+  const totalMinutes = totalMovies * 120;
+  const totalHours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+
+  // 初始化动画
+  useEffect(() => {
+    if (!showGallery) {
+      // 显示总结报告
+      gsap.fromTo(
+        summaryRef.current,
+        { opacity: 0, y: 50 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 1,
+          ease: "power3.out",
+        }
+      );
+    }
+  }, [showGallery]);
+
+  // 计算瀑布流布局
+  const [movieColumns, setMovieColumns] = useState<Movie[][]>([[], [], []]);
+  const [duplicatedColumns, setDuplicatedColumns] = useState<Movie[][]>([[], [], []]);
+
+  useEffect(() => {
+    const calculateLayout = () => {
+      if (!showGallery || movies.length === 0) {
+        setMovieColumns([[], [], []]);
+        setDuplicatedColumns([[], [], []]);
+        return;
+      }
+
+      const numColumns = typeof window !== 'undefined' 
+        ? (window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 2)
+        : 2;
+      const newColumns: Movie[][] = Array.from({ length: numColumns }, () => []);
+      const newHeights: number[] = Array.from({ length: numColumns }, () => 0);
+
+      // 将电影分配到最短的列
+      movies.forEach((movie) => {
+        const shortestColumnIndex = newHeights.indexOf(Math.min(...newHeights));
+        newColumns[shortestColumnIndex].push(movie);
+        // 估算高度（假设图片宽高比约为 2:3）
+        const estimatedHeight = (typeof window !== 'undefined' ? window.innerWidth / numColumns - 24 : 300) * 1.5;
+        newHeights[shortestColumnIndex] += estimatedHeight;
+      });
+
+      setMovieColumns(newColumns);
+      setDuplicatedColumns(newColumns.map(col => [...col]));
+    };
+
+    // 使用requestAnimationFrame避免同步setState
+    const rafId = requestAnimationFrame(() => {
+      calculateLayout();
+    });
+
+    // 监听窗口大小变化
+    const handleResize = () => {
+      calculateLayout();
+    };
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [showGallery, movies]);
+
+  // 无限向上循环滚动
+  useEffect(() => {
+    if (!showGallery || !galleryContainerRef.current || movieColumns.length === 0 || movieColumns[0].length === 0) return;
+
+    const container = galleryContainerRef.current;
+    const scrollSpeed = 0.3;
+    let animationFrameId: number | null = null;
+    let scrollTimeout: NodeJS.Timeout;
+
+    // 计算中间位置（第二组内容的开始位置）
+    const getMiddlePosition = () => {
+      // 第一组高度 + 第二组开始位置
+      const firstGroupHeight = container.scrollHeight / 3;
+      return firstGroupHeight;
+    };
+
+    const autoScroll = () => {
+      if (!isScrolling.current && container) {
+        container.scrollTop += scrollSpeed;
+
+        // 检测是否接近顶部（距离顶部小于100px）
+        if (container.scrollTop < 100) {
+          // 重置滚动位置到中间位置
+          container.scrollTop = getMiddlePosition();
+        }
+        
+        // 检测是否接近底部（第三组内容的底部）
+        const bottomThreshold = container.scrollHeight - container.clientHeight - 100;
+        if (container.scrollTop > bottomThreshold) {
+          // 重置到中间位置
+          container.scrollTop = getMiddlePosition();
+        }
+      }
+      animationFrameId = requestAnimationFrame(autoScroll);
+    };
+
+    // 初始化：设置滚动位置到中间
+    const initTimeout = setTimeout(() => {
+      if (container && container.scrollHeight > 0) {
+        container.scrollTop = getMiddlePosition();
+        animationFrameId = requestAnimationFrame(autoScroll);
+      }
+    }, 300);
+
+    // 处理用户滚动
+    const handleScroll = () => {
+      isScrolling.current = true;
+      
+      // 检测是否接近顶部
+      if (container.scrollTop < 100) {
+        container.scrollTop = getMiddlePosition();
+      }
+      
+      // 检测是否接近底部
+      const bottomThreshold = container.scrollHeight - container.clientHeight - 100;
+      if (container.scrollTop > bottomThreshold) {
+        container.scrollTop = getMiddlePosition();
+      }
+
+      // 重置滚动标志
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        isScrolling.current = false;
+      }, 150);
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      clearTimeout(initTimeout);
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      container.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
+    };
+  }, [showGallery, movieColumns]);
+
+  // 通知父组件子页面变化
+  useEffect(() => {
+    if (onSubPageChange) {
+      onSubPageChange(showGallery ? 'gallery' : 'summary');
+    }
+  }, [showGallery, onSubPageChange]);
+
+  // 检测照片墙滚动位置（用于判断是否可以切换到下一个主页面）
+  useEffect(() => {
+    if (!showGallery || !galleryContainerRef.current || !onGalleryScrollChange) return;
+
+    const container = galleryContainerRef.current;
+    const checkScroll = () => {
+      // 检测是否滚动到第三组内容的底部（接近整个容器的底部）
+      const scrollProgress = container.scrollTop / (container.scrollHeight - container.clientHeight);
+      // 当滚动超过80%时，认为已经浏览完主要内容
+      const isAtBottom = scrollProgress >= 0.8;
+      onGalleryScrollChange(isAtBottom);
+    };
+
+    container.addEventListener('scroll', checkScroll, { passive: true });
+    checkScroll(); // 初始检查
+
+    return () => {
+      container.removeEventListener('scroll', checkScroll);
+    };
+  }, [showGallery, onGalleryScrollChange]);
+
+  // 切换到照片墙
+  const switchToGallery = () => {
+    if (!showGallery) {
+      setShowGallery(true);
+      gsap.to(summaryRef.current, {
+        opacity: 0,
+        y: -50,
+        duration: 0.6,
+        ease: "power2.inOut",
+        onComplete: () => {
+          gsap.fromTo(
+            galleryRef.current,
+            { opacity: 0, y: 100 },
+            {
+              opacity: 1,
+              y: 0,
+              duration: 0.8,
+              ease: "power3.out",
+            }
+          );
+        },
+      });
+    }
+  };
+
+  // 检查照片墙是否滚动到底部
+  const isGalleryAtBottom = (): boolean => {
+    if (!galleryContainerRef.current) return false;
+    const container = galleryContainerRef.current;
+    return container.scrollTop >= container.scrollHeight - container.clientHeight - 10;
+  };
+
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    getCurrentSubPage: () => (showGallery ? 'gallery' : 'summary'),
+    switchToGallery,
+    isGalleryAtBottom,
+  }));
+
+
+  const handleMovieClick = (movie: Movie) => {
+    setSelectedMovie(movie);
+  };
+
+  // 生成星空位置（使用 lazy initialization）
+  const [stars] = useState<
+    Array<{
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+      opacity: number;
+      animation: number;
+    }>
+  >(() =>
+    Array.from({ length: 50 }).map(() => ({
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      width: Math.random() * 3 + 1,
+      height: Math.random() * 3 + 1,
+      opacity: Math.random() * 0.8 + 0.2,
+      animation: Math.random() * 3 + 2,
+    }))
+  );
+
+  return (
+    <section
+      ref={containerRef}
+      className="relative h-screen overflow-hidden"
+    >
+      {/* 深色渐变星空背景 */}
+      <div className="absolute inset-0 bg-gradient-to-b from-gray-900 via-blue-900 to-black">
+        {/* 星空效果 */}
+        <div className="absolute inset-0">
+          {stars.map((star, i) => (
+            <div
+              key={i}
+              className="absolute rounded-full bg-white"
+              style={{
+                left: `${star.left}%`,
+                top: `${star.top}%`,
+                width: `${star.width}px`,
+                height: `${star.height}px`,
+                opacity: star.opacity,
+                animation: `twinkle ${star.animation}s infinite`,
+              }}
+            />
           ))}
         </div>
       </div>
-    </motion.section>
-  )
-}
 
+      {/* 底部电影院图片 */}
+      <div className="absolute bottom-0 left-0 right-0 h-1/3">
+        <Image
+          src="/watch-movie-with-light.png"
+          alt="Cinema"
+          fill
+          className="object-cover object-bottom opacity-60"
+          priority
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+      </div>
+
+      {/* 总结报告 */}
+      {!showGallery && (
+        <div
+          ref={summaryRef}
+          className="relative z-10 h-full flex items-start justify-start px-8 pt-12 md:px-16 md:pt-20"
+        >
+          <div className="text-left text-white max-w-4xl">
+            <h2
+              className="text-6xl md:text-8xl font-bold mb-8 font-playfair"
+              style={{ textShadow: "0 0 30px rgba(59, 130, 246, 0.5)" }}
+            >
+              观影时光
+            </h2>
+            <div className="space-y-6 text-2xl md:text-3xl font-inter">
+              <p className="opacity-90">
+                这一年，你们共同观看了
+                <span className="text-blue-300 font-bold mx-2 text-4xl md:text-5xl font-lemonada">
+                  {totalMovies}
+                </span>
+                部电影
+              </p>
+              {totalHours > 0 && (
+                <p className="opacity-90">
+                  累计观影时长
+                  <span className="text-blue-300 font-bold mx-2 text-4xl md:text-5xl font-lemonada">
+                    {totalHours}
+                  </span>
+                  小时
+                  {remainingMinutes > 0 && (
+                    <>
+                      <span className="text-blue-300 font-bold mx-2 text-4xl md:text-5xl font-lemonada">
+                        {remainingMinutes}
+                      </span>
+                      分钟
+                    </>
+                  )}
+                </p>
+              )}
+              {averageRating > 0 && (
+                <p className="opacity-90">
+                  平均评分
+                  <span className="text-yellow-300 font-bold mx-2 text-4xl md:text-5xl font-lemonada">
+                    {averageRating.toFixed(1)}
+                  </span>
+                  分
+                </p>
+              )}
+              <p className="text-xl md:text-2xl mt-8 opacity-70 italic font-playfair">
+                每一帧画面，都是你们共同的回忆
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 照片墙 - 瀑布流 */}
+      {showGallery && (
+        <div
+          ref={galleryRef}
+          className="relative z-10 h-full overflow-hidden"
+        >
+          <div
+            ref={galleryContainerRef}
+            className="h-full overflow-y-auto px-4 py-8 scrollbar-hide"
+            style={{
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
+          >
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+              {/* 第一组：重复的内容（用于无缝循环） */}
+              {duplicatedColumns.length > 0 && duplicatedColumns.map((column, colIndex) => (
+                <div key={`dup-${colIndex}`} className="flex flex-col gap-6">
+                  {column.map((movie, idx) => (
+                    <div
+                      key={`dup-${movie.id}-${idx}`}
+                      className="cursor-pointer group"
+                      onClick={() => handleMovieClick(movie)}
+                    >
+                      {movie.poster_url ? (
+                        <div className="relative w-full rounded-lg overflow-hidden shadow-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-blue-500/50">
+                          <img
+                            crossOrigin="anonymous"
+                            src={movie.poster_url}
+                            alt={movie.title}
+                            className="w-full h-auto object-cover"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                            <h3 className="font-bold text-lg font-playfair line-clamp-2">
+                              {movie.title}
+                            </h3>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="relative w-full aspect-[2/3] rounded-lg bg-gradient-to-br from-blue-800 to-gray-900 flex items-center justify-center shadow-2xl">
+                          <p className="text-white text-center px-4 font-inter">
+                            {movie.title}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {/* 第二组：原始内容 */}
+              {movieColumns.length > 0 && movieColumns.map((column, colIndex) => (
+                <div key={colIndex} className="flex flex-col gap-6">
+                  {column.map((movie) => (
+                    <div
+                      key={movie.id}
+                      className="cursor-pointer group"
+                      onClick={() => handleMovieClick(movie)}
+                    >
+                      {movie.poster_url ? (
+                        <div className="relative w-full rounded-lg overflow-hidden shadow-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-blue-500/50">
+                          <img
+                            crossOrigin="anonymous"
+                            src={movie.poster_url}
+                            alt={movie.title}
+                            className="w-full h-auto object-cover"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                            <h3 className="font-bold text-lg font-playfair line-clamp-2">
+                              {movie.title}
+                            </h3>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="relative w-full aspect-[2/3] rounded-lg bg-gradient-to-br from-blue-800 to-gray-900 flex items-center justify-center shadow-2xl">
+                          <p className="text-white text-center px-4 font-inter">
+                            {movie.title}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {/* 第三组：再次重复的内容（用于无缝循环） */}
+              {duplicatedColumns.length > 0 && duplicatedColumns.map((column, colIndex) => (
+                <div key={`dup2-${colIndex}`} className="flex flex-col gap-6">
+                  {column.map((movie, idx) => (
+                    <div
+                      key={`dup2-${movie.id}-${idx}`}
+                      className="cursor-pointer group"
+                      onClick={() => handleMovieClick(movie)}
+                    >
+                      {movie.poster_url ? (
+                        <div className="relative w-full rounded-lg overflow-hidden shadow-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-blue-500/50">
+                          <img
+                            crossOrigin="anonymous"
+                            src={movie.poster_url}
+                            alt={movie.title}
+                            className="w-full h-auto object-cover"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                            <h3 className="font-bold text-lg font-playfair line-clamp-2">
+                              {movie.title}
+                            </h3>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="relative w-full aspect-[2/3] rounded-lg bg-gradient-to-br from-blue-800 to-gray-900 flex items-center justify-center shadow-2xl">
+                          <p className="text-white text-center px-4 font-inter">
+                            {movie.title}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3D 卡片弹出 */}
+      {selectedMovie && (
+        <MovieCard
+          movie={selectedMovie}
+          onClose={() => setSelectedMovie(null)}
+        />
+      )}
+
+      <style jsx>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        @keyframes twinkle {
+          0%,
+          100% {
+            opacity: 0.2;
+          }
+          50% {
+            opacity: 1;
+          }
+        }
+      `}</style>
+    </section>
+  );
+});
+
+MovieSection.displayName = 'MovieSection';

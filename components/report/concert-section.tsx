@@ -1,43 +1,50 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Image from 'next/image'
 import { Music } from 'lucide-react'
+import { gsap } from 'gsap'
 
 interface ConcertSectionProps {
   concerts: any[]
 }
 
 export function ConcertSection({ concerts }: ConcertSectionProps) {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  }
+  const containerRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
+  const cardsRef = useRef<HTMLDivElement[]>([])
 
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
+  useEffect(() => {
+    const tl = gsap.timeline()
+
+    // 设置初始状态
+    gsap.set(headerRef.current, { opacity: 0, y: 30 })
+    gsap.set(cardsRef.current, { opacity: 0, x: -50, rotationY: -15 })
+
+    // 动画序列
+    tl.to(headerRef.current, {
       opacity: 1,
-    },
-  }
+      y: 0,
+      duration: 0.8,
+      ease: 'power3.out',
+    }).to(cardsRef.current, {
+      opacity: 1,
+      x: 0,
+      rotationY: 0,
+      duration: 0.7,
+      stagger: 0.15,
+      ease: 'power3.out',
+    })
+  }, [concerts])
 
   return (
-    <motion.section
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: '-100px' }}
-      variants={containerVariants}
-      className="min-h-screen flex items-center justify-center px-4 py-20 bg-white/50 dark:bg-gray-800/50"
+    <section
+      ref={containerRef}
+      className="h-screen flex items-center justify-center px-4 py-20 overflow-y-auto bg-white/50 dark:bg-gray-800/50"
     >
       <div className="container mx-auto max-w-6xl">
-        <motion.div variants={itemVariants} className="text-center mb-12">
+        <div ref={headerRef} className="text-center mb-12">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Music className="h-8 w-8 text-purple-500" />
             <h2 className="text-4xl md:text-5xl font-bold">演唱会记录</h2>
@@ -45,11 +52,16 @@ export function ConcertSection({ concerts }: ConcertSectionProps) {
           <p className="text-muted-foreground text-lg">
             共参加了 <strong className="text-foreground">{concerts.length}</strong> 场演唱会
           </p>
-        </motion.div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {concerts.map((concert) => (
-            <motion.div key={concert.id} variants={itemVariants}>
+          {concerts.map((concert, index) => (
+            <div
+              key={concert.id}
+              ref={(el) => {
+                if (el) cardsRef.current[index] = el
+              }}
+            >
               <Card className="overflow-hidden hover:shadow-lg transition-shadow">
                 {concert.poster_url && (
                   <div className="relative w-full aspect-video">
@@ -78,11 +90,11 @@ export function ConcertSection({ concerts }: ConcertSectionProps) {
                   )}
                 </CardContent>
               </Card>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>
-    </motion.section>
+    </section>
   )
 }
 

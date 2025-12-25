@@ -3,24 +3,36 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { MovieForm, Movie } from '@/components/form/movie-form'
+import { MovieForm } from '@/components/form/movie-form'
 import { ConcertForm, Concert } from '@/components/form/concert-form'
 import { TravelForm, Travel } from '@/components/form/travel-form'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Heart, Loader2 } from 'lucide-react'
+import { Heart, Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+
+interface MovieResult {
+  title: string
+  originalTitle: string
+  releaseDate: string | null
+  posterUrl: string
+}
 
 export default function Home() {
-  const [movies, setMovies] = useState<Movie[]>([])
+  const [movieList, setMovieList] = useState('')
   const [concerts, setConcerts] = useState<Concert[]>([])
   const [travels, setTravels] = useState<Travel[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [shareCode, setShareCode] = useState<string | null>(null)
   const [showDialog, setShowDialog] = useState(false)
+  const [movieResults, setMovieResults] = useState<{
+    successful: MovieResult[]
+    failed: string[]
+  } | null>(null)
   const router = useRouter()
 
   const handleSubmit = async () => {
-    if (movies.length === 0 && concerts.length === 0 && travels.length === 0) {
+    if (!movieList.trim() && concerts.length === 0 && travels.length === 0) {
       alert('请至少添加一条记录')
       return
     }
@@ -33,12 +45,7 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          movies: movies.map((m) => ({
-            title: m.title,
-            date: m.date || null,
-            rating: m.rating,
-            posterUrl: m.posterUrl,
-          })),
+          movieList: movieList.trim(),
           concerts: concerts.map((c) => ({
             artist: c.artist,
             date: c.date || null,
@@ -56,8 +63,9 @@ export default function Home() {
       })
 
       if (response.ok) {
-        const { shareCode: code } = await response.json()
-        setShareCode(code)
+        const data = await response.json()
+        setShareCode(data.shareCode)
+        setMovieResults(data.movies || { successful: [], failed: [] })
         setShowDialog(true)
       } else {
         const error = await response.json()
@@ -93,7 +101,7 @@ export default function Home() {
         </div>
 
         <div className="space-y-6">
-          <MovieForm movies={movies} onChange={setMovies} />
+          <MovieForm movieList={movieList} onChange={setMovieList} />
           <ConcertForm concerts={concerts} onChange={setConcerts} />
           <TravelForm travels={travels} onChange={setTravels} />
 
@@ -120,14 +128,77 @@ export default function Home() {
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>报告生成成功！</DialogTitle>
             <DialogDescription>
               您的分享码是：<strong className="text-foreground">{shareCode}</strong>
             </DialogDescription>
           </DialogHeader>
-          <div className="flex gap-4 mt-4">
+
+          {movieResults && (
+            <div className="mt-6 space-y-4">
+              {movieResults.successful.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    <h3 className="font-semibold text-lg">
+                      成功解析 ({movieResults.successful.length} 部)
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {movieResults.successful.map((movie, index) => (
+                      <Card key={index} className="overflow-hidden">
+                        {movie.posterUrl && (
+                          <div className="relative w-full aspect-[2/3]">
+                            <Image
+                              src={movie.posterUrl}
+                              alt={movie.title}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                        )}
+                        <CardContent className="p-3">
+                          <p className="font-medium text-sm line-clamp-2">
+                            {movie.title}
+                          </p>
+                          {movie.releaseDate && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(movie.releaseDate).getFullYear()}
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {movieResults.failed.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <XCircle className="h-5 w-5 text-red-500" />
+                    <h3 className="font-semibold text-lg">
+                      未解析成功 ({movieResults.failed.length} 部)
+                    </h3>
+                  </div>
+                  <div className="bg-muted p-3 rounded-lg">
+                    <ul className="list-disc list-inside space-y-1 text-sm">
+                      {movieResults.failed.map((title, index) => (
+                        <li key={index}>{title}</li>
+                      ))}
+                    </ul>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      这些电影可能不在本年度发行，或名称不匹配
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-4 mt-6">
             <Button onClick={handleViewReport} className="flex-1">
               查看报告
             </Button>

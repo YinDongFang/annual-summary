@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS movies (
   report_id UUID NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   date DATE,
+  release_date DATE,
   poster_url TEXT,
   rating INTEGER CHECK (rating >= 1 AND rating <= 5),
   tags TEXT[],
