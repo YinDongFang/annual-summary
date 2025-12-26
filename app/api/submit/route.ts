@@ -2,6 +2,37 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateShareCode } from '@/lib/share-code'
 import { openai } from '@/lib/openai'
+import ColorThief from 'colorthief'
+
+// 提取图片主题色
+async function extractDominantColor(imageUrl: string): Promise<string | undefined> {
+  try {
+    // 下载图片
+    const response = await fetch(imageUrl)
+    if (!response.ok) {
+      return undefined
+    }
+    
+    const arrayBuffer = await response.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    
+    // 使用 colorthief 提取颜色
+    // 在 Node.js 中，colorthief 可以处理 Buffer
+    const colorThief = new ColorThief()
+    // @ts-expect-error - colorthief 在 Node.js 中支持 Buffer，但类型定义不完整
+    const color = colorThief.getColor(buffer)
+    
+    if (Array.isArray(color) && color.length >= 3) {
+      const [r, g, b] = color
+      return `rgb(${r},${g},${b})`
+    }
+    
+    return undefined
+  } catch (error) {
+    console.error('Error extracting color:', error)
+    return undefined
+  }
+}
 
 // 从 TMDB API 获取电影信息
 async function fetchMovieInfo(title: string) {
@@ -37,17 +68,77 @@ async function fetchMovieInfo(title: string) {
       data.results.length > 0
     ) {
       const movieData = data.results[0]
+      const movieId = movieData.id
       const imagePath = movieData.backdrop_path || movieData.poster_path
       if (!imagePath) {
         return null
       }
 
-      const posterUrl = `${process.env.TMDB_IMAGE_URL}/t/p/w500_and_h500_face${imagePath}`
+      const posterUrl = `${process.env.TMDB_IMAGE_URL}/t/p/w600_and_h600_face${imagePath}`
+
+      // 获取电影详细信息
+      let runtime: number | undefined
+      let genres: string[] | undefined
+      let backdropUrl: string | undefined
+      let dominantColor: string | undefined
+      let logoUrl: string | undefined
+
+      try {
+        // 获取电影详细信息
+        const detailResponse = await fetch(
+          `${process.env.TMDB_API_URL}/3/movie/${movieId}?language=zh-CN`,
+          {
+            headers: {
+              Authorization: `Bearer ${tmdbBearerToken}`,
+              accept: 'application/json',
+            },
+          }
+        )
+
+        if (detailResponse.ok) {
+          const detailData = await detailResponse.json()
+          runtime = detailData.runtime || undefined
+          genres = detailData.genres?.map((g: { name: string }) => g.name) || undefined
+          if (detailData.backdrop_path) {
+            backdropUrl = `${process.env.TMDB_IMAGE_URL}/t/p/w1280${detailData.backdrop_path}`
+            // 提取主题色
+            dominantColor = await extractDominantColor(backdropUrl)
+          }
+        }
+
+        // 获取电影图片（logo）
+        const imagesResponse = await fetch(
+          `${process.env.TMDB_API_URL}/3/movie/${movieId}/images?language=zh-CN`,
+          {
+            headers: {
+              Authorization: `Bearer ${tmdbBearerToken}`,
+              accept: 'application/json',
+            },
+          }
+        )
+
+        if (imagesResponse.ok) {
+          const imagesData = await imagesResponse.json()
+          if (imagesData.logos && imagesData.logos.length > 0) {
+            const logoPath = imagesData.logos[0].file_path
+            logoUrl = `${process.env.TMDB_IMAGE_URL}/t/p/w500${logoPath}`
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching movie details:', error)
+        // 继续处理，即使获取详细信息失败
+      }
 
       return {
         title: movieData.title,
         releaseDate: movieData.release_date,
         posterUrl: posterUrl,
+        movieId: movieId,
+        logoUrl: logoUrl,
+        runtime: runtime,
+        genres: genres,
+        backdropUrl: backdropUrl,
+        dominantColor: dominantColor,
       }
     }
 
@@ -107,7 +198,7 @@ async function generateCityImage(city: string, country: string) {
       quality: 'standard',
     })
 
-    const imageUrl = response.data[0]?.url
+    const imageUrl = response.data?.[0]?.url
     if (!imageUrl) {
       return null
     }
@@ -266,6 +357,11 @@ export async function POST(request: NextRequest) {
             originalTitle: title,
             releaseDate: movieInfo.releaseDate,
             posterUrl: movieInfo.posterUrl,
+            logoUrl: movieInfo.logoUrl || undefined,
+            runtime: movieInfo.runtime || undefined,
+            genres: movieInfo.genres || undefined,
+            backdropUrl: movieInfo.backdropUrl || undefined,
+            dominantColor: movieInfo.dominantColor || undefined,
           })
         } else {
           failedMovies.push(title)
@@ -312,6 +408,11 @@ export async function POST(request: NextRequest) {
             date: null,
             release_date: movie.releaseDate || null,
             poster_url: movie.posterUrl || null,
+            logo_url: movie.logoUrl || null,
+            runtime: movie.runtime || null,
+            genres: movie.genres || null,
+            backdrop_url: movie.backdropUrl || null,
+            dominant_color: movie.dominantColor || null,
             rating: null,
             tags: tags.length > 0 ? tags : null,
           }

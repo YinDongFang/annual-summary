@@ -6,18 +6,8 @@ import {
   useImperativeHandle,
 } from "react";
 import { gsap } from "gsap";
-import { X } from "lucide-react";
 import { Waterfall } from "./movie/Waterfall";
-
-interface Movie {
-  id: string;
-  title: string;
-  date?: string;
-  release_date?: string;
-  poster_url?: string;
-  rating?: number;
-  summary?: string;
-}
+import { Ticket } from "./movie/Ticket";
 
 interface MovieSectionProps {
   movies: Movie[];
@@ -29,142 +19,6 @@ export interface MovieSectionRef {
   getCurrentSubPage: () => "summary" | "gallery";
   switchToGallery: () => void;
   isGalleryAtBottom: () => boolean;
-}
-
-interface MovieCardProps {
-  movie: Movie;
-  onClose: () => void;
-}
-
-// 3D 卡片弹出组件
-function MovieCard({ movie, onClose }: MovieCardProps) {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // 3D 旋转进入动画
-    gsap.fromTo(
-      cardRef.current,
-      {
-        rotationY: -90,
-        opacity: 0,
-        scale: 0.8,
-      },
-      {
-        rotationY: 0,
-        opacity: 1,
-        scale: 1,
-        duration: 0.8,
-        ease: "back.out(1.7)",
-      }
-    );
-
-    gsap.fromTo(
-      overlayRef.current,
-      { opacity: 0 },
-      { opacity: 1, duration: 0.3 }
-    );
-  }, []);
-
-  const handleClose = () => {
-    gsap.to(cardRef.current, {
-      rotationY: 90,
-      opacity: 0,
-      scale: 0.8,
-      duration: 0.5,
-      ease: "back.in(1.7)",
-      onComplete: onClose,
-    });
-    gsap.to(overlayRef.current, {
-      opacity: 0,
-      duration: 0.3,
-    });
-  };
-
-  return (
-    <>
-      <div
-        ref={overlayRef}
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
-        onClick={handleClose}
-      />
-      <div
-        ref={cardRef}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
-        style={{ perspective: "1000px" }}
-      >
-        <div
-          className="bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 rounded-2xl shadow-2xl max-w-md w-full pointer-events-auto relative overflow-hidden"
-          style={{ transformStyle: "preserve-3d" }}
-        >
-          <button
-            onClick={handleClose}
-            className="absolute top-4 right-4 z-10 text-white hover:text-gray-300 transition-colors"
-          >
-            <X className="h-6 w-6" />
-          </button>
-
-          {movie.poster_url && (
-            <div className="relative w-full aspect-[2/3]">
-              <img
-                src={movie.poster_url}
-                alt={movie.title}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-            </div>
-          )}
-
-          <div className="p-6 text-white">
-            <h3 className="text-3xl font-bold mb-4 font-playfair">
-              {movie.title}
-            </h3>
-            {movie.release_date && (
-              <div className="mb-2">
-                <span className="text-gray-400">上映时间：</span>
-                <span className="font-inter">
-                  {new Date(movie.release_date).toLocaleDateString("zh-CN", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </span>
-              </div>
-            )}
-            {movie.date && (
-              <div className="mb-4">
-                <span className="text-gray-400">观看日期：</span>
-                <span className="font-inter">
-                  {new Date(movie.date).toLocaleDateString("zh-CN", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </span>
-              </div>
-            )}
-            {movie.rating !== undefined && movie.rating > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400">评分：</span>
-                <div className="flex">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <span
-                      key={i}
-                      className={
-                        i < movie.rating! ? "text-yellow-400" : "text-gray-600"
-                      }
-                    >
-                      ★
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </>
-  );
 }
 
 export const MovieSection = forwardRef<MovieSectionRef, MovieSectionProps>(
@@ -381,7 +235,7 @@ export const MovieSection = forwardRef<MovieSectionRef, MovieSectionProps>(
 
         {/* 3D 卡片弹出 */}
         {selectedMovie && (
-          <MovieCard
+          <Ticket
             movie={selectedMovie}
             onClose={() => setSelectedMovie(null)}
           />
