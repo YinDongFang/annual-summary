@@ -6,7 +6,7 @@ interface Movie {
   uid?: number;
   id: string;
   title: string;
-  poster_url?: string;
+  backdrop_url?: string;
 }
 
 interface WaterfallProps {
@@ -162,7 +162,7 @@ export function Waterfall({
           }}
         >
           <img
-            src={item.poster_url!}
+            src={item.backdrop_url!}
             className="object-cover w-full h-full relative rounded-sm"
             style={{
               top: (index % columns) % 2 ? `-50%` : 0,

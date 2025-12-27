@@ -17,6 +17,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  serverExternalPackages: ["colorthief"],
 };
 
 export default nextConfig;

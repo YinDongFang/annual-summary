@@ -1,24 +1,11 @@
+import { fitTextToWidth } from "@/lib/utils";
 import { gsap } from "gsap";
 import { X } from "lucide-react";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo } from "react";
 
 interface TicketProps {
   movie: Movie;
   onClose: () => void;
-}
-
-// 格式化时长
-function formatRuntime(minutes?: number): string {
-  if (!minutes) return "";
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (hours > 0 && mins > 0) {
-    return `${hours} 小时 ${mins} 分钟`;
-  } else if (hours > 0) {
-    return `${hours} 小时`;
-  } else {
-    return `${mins} 分钟`;
-  }
 }
 
 export function Ticket({ movie, onClose }: TicketProps) {
@@ -26,9 +13,31 @@ export function Ticket({ movie, onClose }: TicketProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // 计算主题色渐变背景
-  const gradient = movie.dominant_color
-    ? `linear-gradient(to bottom, ${movie.dominant_color}80, ${movie.dominant_color}40)`
-    : "linear-gradient(to bottom, rgba(59, 130, 246, 1), rgba(59, 130, 246, 1))";
+  const light = movie.backdrop_colors.reverse()[0];
+  const gradient1 = `linear-gradient(160deg, ${movie.backdrop_colors.join(",")})`;
+  const gradient2 = `linear-gradient(160deg, transparent 60%, ${movie.backdrop_colors.reverse()[0]})`;
+
+  console.log(movie.backdrop_colors);
+
+  const width = 80;
+  const padding = 20;
+
+  const fontSize = useMemo(() => {
+    const title = movie.title;
+    const singleLineWidth =
+      (document.body.clientWidth * width) / 100 - padding * 2;
+    const fontStyle = {
+      fontFamily: "var(--font-playfair)",
+      fontWeight: "bold",
+    };
+    const maxFontSize = fitTextToWidth(
+      new Array(10).fill("国").join(""),
+      fontStyle,
+      singleLineWidth
+    );
+    const autoSize = fitTextToWidth(title, fontStyle, singleLineWidth * 1.2);
+    return Math.min(autoSize - 1, maxFontSize - 1);
+  }, [movie]);
 
   useEffect(() => {
     // 3D 旋转进入动画
@@ -79,139 +88,88 @@ export function Ticket({ movie, onClose }: TicketProps) {
       />
       <div
         ref={cardRef}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
-        style={{ perspective: "1000px" }}
+        className="shadow-2xl absolute z-50 top-1/2 translate-y-[-50%] text-white"
+        style={{
+          width: `${width}vw`,
+          left: `${(100 - width) / 2}vw`,
+          maskImage: "url('/ticket.png')",
+          maskSize: "contain",
+          maskRepeat: "no-repeat",
+          maskPosition: "center",
+          WebkitMaskImage: "url('/ticket.png')",
+          WebkitMaskSize: "contain",
+          WebkitMaskRepeat: "no-repeat",
+          WebkitMaskPosition: "center",
+        }}
       >
+        {/* 展位图片 */}
+        <img src="/ticket.png" alt="ticket" className="w-full invisible" />
+        {/* 背景渐变 */}
+        <div className="absolute inset-0" style={{ background: gradient1 }} />
+        {/* 背景渐变 */}
         <div
-          className="shadow-2xl max-w-lg w-[80vw] left-[10vw] pointer-events-auto absolute"
+          className="absolute inset-0"
           style={{
-            transformStyle: "preserve-3d",
-            maskImage: "url('/ticket.png')",
+            background: gradient2,
+            maskImage: "url('/ticket-border.png')",
             maskSize: "contain",
             maskRepeat: "no-repeat",
             maskPosition: "center",
-            WebkitMaskImage: "url('/ticket.png')",
-            WebkitMaskSize: "contain",
-            WebkitMaskRepeat: "no-repeat",
-            WebkitMaskPosition: "center",
+            opacity: 0.2,
           }}
+        />
+        {/* 关闭按钮 */}
+        <button
+          onClick={handleClose}
+          className="absolute top-4 right-4 z-20 hover:text-gray-300 transition-colors bg-black/50 rounded-full p-2"
         >
-          <img src="/ticket.png" alt="ticket" className="w-full" />
-          <div className="absolute inset-0">
-            <button
-              onClick={handleClose}
-              className="absolute top-4 right-4 z-20 text-white hover:text-gray-300 transition-colors bg-black/50 rounded-full p-2"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            {/* 背景渐变 */}
-            <div
-              className="absolute inset-0"
-              style={{ background: gradient }}
-            />
-
-            {/* Backdrop 图片 */}
-            {movie.backdrop_url && (
-              <div className="w-full aspect-square overflow-hidden">
-                <img
-                  src={movie.backdrop_url}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-black/60" />
+          <X className="h-5 w-5" />
+        </button>
+        <div className="absolute inset-0 font-playfair">
+          {/* 封面图片 */}
+          <img
+            src={movie.backdrop_url}
+            className="w-full aspect-square object-cover"
+          />
+          {/* 内容区域 */}
+          <div
+            className="relative flex flex-col justify-around"
+            style={{
+              padding: `${padding / 1.5}px ${padding}px`,
+              aspectRatio: "3/1",
+            }}
+          >
+            {/* 标题 */}
+            <h3 className="font-bold" style={{ fontSize: `${fontSize}px` }}>
+              {movie.title}
+            </h3>
+            {/* 上映时间 时长 */}
+            <div className="text-xl flex items-center gap-4 leading-2">
+              <span>{movie.release_date}</span>
+              <span>
+                <span>{movie.runtime}</span>
+                <span className="text-sm">mins</span>
+              </span>
+            </div>
+          </div>
+          <div style={{ padding: `${padding}px` }}>
+            {/* 类型 */}
+            {movie.genres && movie.genres.length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                类型：{movie.genres.join(" / ")}
               </div>
             )}
 
-            {/* 内容区域 */}
-            <div className="relative p-6 text-white">
-              <h3 className="text-3xl font-bold mb-4 font-playfair">
-                {movie.title}
-              </h3>
-
-              {/* 上映时间 */}
-              {movie.release_date && (
-                <div className="mb-2">
-                  <span className="text-gray-300 text-sm">上映时间：</span>
-                  <span className="font-inter">
-                    {new Date(movie.release_date).toLocaleDateString("zh-CN", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </span>
-                </div>
-              )}
-
-              {/* 观看日期 */}
-              {movie.date && (
-                <div className="mb-2">
-                  <span className="text-gray-300 text-sm">观看日期：</span>
-                  <span className="font-inter">
-                    {new Date(movie.date).toLocaleDateString("zh-CN", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </span>
-                </div>
-              )}
-
-              {/* 时长 */}
-              {movie.runtime && (
-                <div className="mb-2">
-                  <span className="text-gray-300 text-sm">时长：</span>
-                  <span className="font-inter">
-                    {formatRuntime(movie.runtime)}
-                  </span>
-                </div>
-              )}
-
-              {/* 类型 */}
-              {movie.genres && movie.genres.length > 0 && (
-                <div className="mb-4 flex flex-wrap gap-2">
-                  {movie.genres.map((genre, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm font-inter"
-                    >
-                      {genre}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* 评分 */}
-              {movie.rating !== undefined && movie.rating > 0 && (
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-gray-300 text-sm">评分：</span>
-                  <div className="flex">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <span
-                        key={i}
-                        className={
-                          i < movie.rating!
-                            ? "text-yellow-400"
-                            : "text-gray-600"
-                        }
-                      >
-                        ★
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Logo 图片（底部） */}
-              {movie.logo_url && (
-                <div className="mt-6 flex justify-center">
-                  <img
-                    src={movie.logo_url}
-                    alt={`${movie.title} logo`}
-                    className="max-h-16 max-w-full object-contain"
-                  />
-                </div>
-              )}
-            </div>
+            {/* Logo 图片（底部） */}
+            {movie.logo_url && (
+              <div className="mt-6 flex justify-center">
+                <img
+                  src={movie.logo_url}
+                  alt={`${movie.title} logo`}
+                  className="max-h-16 max-w-full object-contain"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

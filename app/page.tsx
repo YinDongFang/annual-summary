@@ -1,51 +1,66 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { MovieForm } from '@/components/form/movie-form'
-import { ConcertForm, Concert } from '@/components/form/concert-form'
-import { TravelForm, Travel } from '@/components/form/travel-form'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Heart, Loader2, CheckCircle2, XCircle } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { MovieForm } from "@/components/form/movie-form";
+import { ConcertForm, Concert } from "@/components/form/concert-form";
+import { TravelForm, Travel } from "@/components/form/travel-form";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Heart, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface MovieResult {
-  title: string
-  originalTitle: string
-  releaseDate: string | null
-  posterUrl: string
+  title: string;
+  originalTitle: string;
+  releaseDate: string | null;
+  posterUrl: string;
 }
 
 export default function Home() {
-  const [movieList, setMovieList] = useState('')
-  const [concerts, setConcerts] = useState<Concert[]>([])
-  const [travels, setTravels] = useState<Travel[]>([])
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [shareCode, setShareCode] = useState<string | null>(null)
-  const [showDialog, setShowDialog] = useState(false)
+  const [movieList, setMovieList] = useState("");
+  const [concerts, setConcerts] = useState<Concert[]>([]);
+  const [travels, setTravels] = useState<Travel[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [shareCode, setShareCode] = useState<string | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
   const [movieResults, setMovieResults] = useState<{
-    successful: MovieResult[]
-    failed: string[]
-  } | null>(null)
-  const router = useRouter()
+    successful: MovieResult[];
+    failed: string[];
+  } | null>(null);
+  const router = useRouter();
 
   const handleSubmit = async () => {
     if (!movieList.trim() && concerts.length === 0 && travels.length === 0) {
-      alert('请至少添加一条记录')
-      return
+      alert("请至少添加一条记录");
+      return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
-      const response = await fetch('/api/submit', {
-        method: 'POST',
+      const response = await fetch("/api/submit", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          movieList: movieList.trim(),
+          movieList: movieList
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean),
           concerts: concerts.map((c) => ({
             artist: c.artist,
             date: c.date || null,
@@ -60,30 +75,30 @@ export default function Home() {
             aiImageUrl: t.aiImageUrl,
           })),
         }),
-      })
+      });
 
       if (response.ok) {
-        const data = await response.json()
-        setShareCode(data.shareCode)
-        setMovieResults(data.movies || { successful: [], failed: [] })
-        setShowDialog(true)
+        const data = await response.json();
+        setShareCode(data.shareCode);
+        setMovieResults(data.movies || { successful: [], failed: [] });
+        setShowDialog(true);
       } else {
-        const error = await response.json()
-        alert(`提交失败: ${error.error}`)
+        const error = await response.json();
+        alert(`提交失败: ${error.error}`);
       }
     } catch (error) {
-      console.error('Error submitting form:', error)
-      alert('提交失败，请重试')
+      console.error("Error submitting form:", error);
+      alert("提交失败，请重试");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleViewReport = () => {
     if (shareCode) {
-      router.push(`/report/${shareCode}`)
+      router.push(`/report/${shareCode}`);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -119,7 +134,7 @@ export default function Home() {
                     生成报告中...
                   </>
                 ) : (
-                  '生成年度报告'
+                  "生成年度报告"
                 )}
               </Button>
             </CardContent>
@@ -132,7 +147,8 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle>报告生成成功！</DialogTitle>
             <DialogDescription>
-              您的分享码是：<strong className="text-foreground">{shareCode}</strong>
+              您的分享码是：
+              <strong className="text-foreground">{shareCode}</strong>
             </DialogDescription>
           </DialogHeader>
 
@@ -174,27 +190,6 @@ export default function Home() {
                   </div>
                 </div>
               )}
-
-              {movieResults.failed.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <XCircle className="h-5 w-5 text-red-500" />
-                    <h3 className="font-semibold text-lg">
-                      未解析成功 ({movieResults.failed.length} 部)
-                    </h3>
-                  </div>
-                  <div className="bg-muted p-3 rounded-lg">
-                    <ul className="list-disc list-inside space-y-1 text-sm">
-                      {movieResults.failed.map((title, index) => (
-                        <li key={index}>{title}</li>
-                      ))}
-                    </ul>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      这些电影可能不在本年度发行，或名称不匹配
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -207,8 +202,8 @@ export default function Home() {
               onClick={() => {
                 navigator.clipboard.writeText(
                   `${window.location.origin}/report/${shareCode}`
-                )
-                alert('链接已复制到剪贴板')
+                );
+                alert("链接已复制到剪贴板");
               }}
               className="flex-1"
             >
@@ -218,5 +213,5 @@ export default function Home() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

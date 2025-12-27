@@ -1,49 +1,46 @@
-import { notFound } from 'next/navigation'
-import { supabaseAdmin } from '@/lib/supabase'
-import { ReportView } from '@/components/report/report-view'
+import { notFound } from "next/navigation";
+import { supabaseAdmin } from "@/lib/supabase";
+import { ReportView } from "@/components/report/report-view";
 
 interface PageProps {
-  params: Promise<{ shareCode: string }>
+  params: Promise<{ shareCode: string }>;
 }
 
 export default async function ReportPage({ params }: PageProps) {
-  const { shareCode } = await params
+  const { shareCode } = await params;
 
   // 从数据库获取报告数据
   const { data: report, error: reportError } = await supabaseAdmin
-    .from('reports')
-    .select('id')
-    .eq('share_code', shareCode)
-    .single()
+    .from("reports")
+    .select("id, movies")
+    .eq("share_code", shareCode)
+    .single();
 
   if (reportError || !report) {
-    notFound()
+    console.error(reportError);
+    notFound();
   }
 
-  const reportId = report.id
+  console.log(report);
 
   // 获取所有相关数据
   const [moviesResult, concertsResult, travelsResult] = await Promise.all([
+    supabaseAdmin.from("movies").select("*").in("id", report.movies),
     supabaseAdmin
-      .from('movies')
-      .select('*')
-      .eq('report_id', reportId)
-      .order('date', { ascending: false }),
+      .from("concerts")
+      .select("*")
+      .in("id", [])
+      .order("date", { ascending: false }),
     supabaseAdmin
-      .from('concerts')
-      .select('*')
-      .eq('report_id', reportId)
-      .order('date', { ascending: false }),
-    supabaseAdmin
-      .from('travels')
-      .select('*')
-      .eq('report_id', reportId)
-      .order('date', { ascending: false }),
-  ])
+      .from("travels")
+      .select("*")
+      .in("id", [])
+      .order("date", { ascending: false }),
+  ]);
 
-  const movies = moviesResult.data || []
-  const concerts = concertsResult.data || []
-  const travels = travelsResult.data || []
+  const movies = moviesResult.data || [];
+  const concerts = concertsResult.data || [];
+  const travels = travelsResult.data || [];
 
   return (
     <ReportView
@@ -52,14 +49,13 @@ export default async function ReportPage({ params }: PageProps) {
       travels={travels}
       shareCode={shareCode}
     />
-  )
+  );
 }
 
 export async function generateMetadata({ params }: PageProps) {
-  const { shareCode } = await params
+  const { shareCode } = await params;
   return {
     title: `年度报告 - ${shareCode}`,
-    description: '查看我们的年度报告',
-  }
+    description: "查看我们的年度报告",
+  };
 }
-
