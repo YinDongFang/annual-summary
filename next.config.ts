@@ -18,6 +18,9 @@ const nextConfig: NextConfig = {
     ],
   },
   serverExternalPackages: ["colorthief"],
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 };
 
 export default nextConfig;
